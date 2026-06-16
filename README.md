@@ -234,13 +234,20 @@ These remain illustrative starting points — always tune them for the fund.
 
 ## Output
 
-The exported workbook (`*_analyzed.xlsx`) contains:
+The exported workbook (`*_analyzed.xlsx`) opens on a one-page dashboard and
+contains:
 
-* **Returns** — date, reported, de-smoothed, cumulative growth and drawdown
-* **Summary Stats** — reported vs de-smoothed comparison
-* **Scenarios** — full stress-test results
-* **Assumptions** — every input used (so the run is reproducible) + ρ diagnostics
+* **Overview** — landing dashboard: run facts, headline metrics (reported vs
+  de-smoothed), the volatility-inflation number, worst stress scenarios, a
+  plain-English read and the two key charts
+* **Returns** — date, reported, de-smoothed, growth of $1 and drawdown
+* **Summary Stats** — reported vs de-smoothed comparison (per-metric formatting)
+* **Scenarios** — stress-test results, colour-scaled and %-formatted
+* **Assumptions** — every input used (friendly labels + units) + ρ diagnostics
 * **Charts** — embedded PNG charts
+
+All tabs use finance-friendly labels, proper number formats (%, ratios,
+counts), frozen headers and filters.
 
 Charts (also exportable as standalone PNGs via `--png-dir`): reported vs
 de-smoothed series, cumulative growth of $1, drawdown, rolling volatility,
