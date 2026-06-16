@@ -37,12 +37,18 @@ matplotlib, openpyxl, XlsxWriter, streamlit.
 
 Accepts **`.xlsx` or `.csv`**. Two layouts work with no template:
 
-**1. Minimal two-column file**
+**1. Minimal two-column file** — the common case (e.g. a sheet you build during
+due diligence on a new fund).
 
 | Column | Contents                                   |
 |--------|--------------------------------------------|
 | **A**  | Date (any readable date)                   |
 | **B**  | Reported periodic return                   |
+
+A ready-made blank template lives at
+[`templates/input_template.xlsx`](templates/input_template.xlsx) (regenerate
+with `python templates/make_template.py`). It has the correct headers, example
+rows to overwrite, and an Instructions sheet.
 
 **2. Rich vendor exports (e.g. Black Diamond)** — drop the raw export in
 directly. The loader finds the date column and the periodic-return column **by
@@ -229,6 +235,9 @@ latent_risk_analyzer/
     pipeline.py        # orchestration used by both interfaces
 app.py                 # Streamlit interface
 cli.py                 # command-line interface
+templates/
+    make_template.py   # regenerates the blank input template
+    input_template.xlsx# ready-to-fill input template (Date + Reported Return)
 sample_data/
     generate_sample.py # creates a synthetic smoothed return stream
 requirements.txt
