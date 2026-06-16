@@ -67,6 +67,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--rho-max", type=float, default=None, help="Safeguard cap on rho.")
 
     # Sensitivities (betas).
+    p.add_argument("--asset-class", default=None, choices=list(config.ASSET_CLASS_PRESETS),
+                   help="Apply an asset-class beta preset as a starting point. "
+                        "Individual --*-beta flags below still override it.")
     p.add_argument("--equity-beta", type=float, default=None)
     p.add_argument("--credit-beta", type=float, default=None)
     p.add_argument("--duration", type=float, default=None)
@@ -83,6 +86,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _assumptions_from_args(args) -> dict:
     a = config.default_assumptions()
+    # Apply an asset-class preset first; explicit --*-beta flags below win.
+    if args.asset_class:
+        config.apply_preset(a, args.asset_class)
+    a["asset_class_preset"] = args.asset_class or "Balanced / generic (default)"
     mapping = {
         "rf": "risk_free_rate",
         "stress_multiplier": "stress_multiplier",

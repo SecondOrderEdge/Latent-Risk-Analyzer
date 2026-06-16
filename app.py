@@ -143,19 +143,29 @@ with st.expander("General & de-smoothing", expanded=True):
         rho_override = None
 
 with st.expander("Sensitivities (betas)", expanded=True):
+    # Asset-class preset: pick a starting profile, then fine-tune below.
+    preset_names = list(config.ASSET_CLASS_PRESETS)
+    preset_name = st.selectbox(
+        "Asset-class preset (starting point — edit the betas below)",
+        preset_names, index=0,
+    )
+    st.caption(f"ℹ️ {config.ASSET_CLASS_PRESETS[preset_name]['notes']}")
+    base = config.preset_betas(preset_name)  # repopulates the inputs on switch
     st.caption(
         "Return impact = Σ (sensitivity × shock). See README/config for unit "
-        "conventions. Defaults are illustrative — edit for your asset."
+        "conventions. Presets are illustrative — edit for your specific fund."
     )
+    # Widget keys include the preset name so switching preset refreshes defaults.
+    pk = preset_name
     b1, b2, b3, b4 = st.columns(4)
-    equity_beta = b1.number_input("Equity beta (per 1.0 eq. return)", value=float(defaults["equity_beta"]), step=0.05, format="%.3f")
-    credit_beta = b2.number_input("Credit beta (per +100bps)", value=float(defaults["credit_beta"]), step=0.01, format="%.3f")
-    duration = b3.number_input("Duration (years)", value=float(defaults["duration"]), step=0.25, format="%.2f")
-    inflation_beta = b4.number_input("Inflation beta (per +1pp)", value=float(defaults["inflation_beta"]), step=0.05, format="%.3f")
+    equity_beta = b1.number_input("Equity beta (per 1.0 eq. return)", value=float(base["equity_beta"]), step=0.05, format="%.3f", key=f"eqb_{pk}")
+    credit_beta = b2.number_input("Credit beta (per +100bps)", value=float(base["credit_beta"]), step=0.01, format="%.3f", key=f"crb_{pk}")
+    duration = b3.number_input("Duration (years)", value=float(base["duration"]), step=0.25, format="%.2f", key=f"dur_{pk}")
+    inflation_beta = b4.number_input("Inflation beta (per +1pp)", value=float(base["inflation_beta"]), step=0.05, format="%.3f", key=f"infb_{pk}")
     b5, b6, b7, b8 = st.columns(4)
-    liquidity_beta = b5.number_input("Liquidity beta (at freeze=1)", value=float(defaults["liquidity_beta"]), step=0.05, format="%.3f")
-    caprate_beta = b6.number_input("Cap-rate beta (per +100bps)", value=float(defaults["caprate_beta"]), step=0.05, format="%.3f")
-    nav_beta = b7.number_input("NAV markdown beta (multiplier)", value=float(defaults["nav_markdown_beta"]), step=0.1, format="%.2f")
+    liquidity_beta = b5.number_input("Liquidity beta (at freeze=1)", value=float(base["liquidity_beta"]), step=0.05, format="%.3f", key=f"liqb_{pk}")
+    caprate_beta = b6.number_input("Cap-rate beta (per +100bps)", value=float(base["caprate_beta"]), step=0.05, format="%.3f", key=f"capb_{pk}")
+    nav_beta = b7.number_input("NAV markdown beta (multiplier)", value=float(base["nav_markdown_beta"]), step=0.1, format="%.2f", key=f"navb_{pk}")
     recovery_return = b8.number_input("Recovery return / period (0=use de-smoothed mean)", value=0.0, step=0.005, format="%.4f")
 
 assumptions = config.default_assumptions()
@@ -172,6 +182,7 @@ assumptions.update({
     "caprate_beta": caprate_beta,
     "nav_markdown_beta": nav_beta,
     "recovery_return_per_period": (recovery_return or None),
+    "asset_class_preset": preset_name,
     "frequency": imp.frequency,
     "annualization_factor": ppy,
 })

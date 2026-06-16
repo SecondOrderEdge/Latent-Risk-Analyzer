@@ -203,6 +203,33 @@ and can be overridden in the app, on the CLI, or by editing the file:
 > illiquid fund. **Edit them for your specific asset** — the whole point of the
 > tool is to make these assumptions explicit and stress-able.
 
+### Asset-class presets
+
+Rather than start from generic betas every time, pick an asset-class profile as
+a calibrated starting point, then fine-tune:
+
+| Preset | Character |
+|---|---|
+| Balanced / generic | partially market-exposed illiquid fund (the default) |
+| Core real estate | cap-rate driven, partial inflation **hedge**, financing-sensitive |
+| Private equity (buyout) | high equity + leverage, large lagged NAV markdowns |
+| Private credit / direct lending | spread-driven, mostly **floating-rate** (rising rates help income) |
+| Infrastructure | long-duration, inflation-linked revenues, rate-sensitive |
+| Venture / growth equity | long-duration growth, very illiquid, big delayed markdowns |
+| Hedge fund / diversified | more liquid, diversified, smaller markdown lag |
+
+The presets are deliberately differentiated — e.g. a `+200bps` rate shock barely
+dents private credit but hits real estate via cap rates and financing, while an
+inflation surprise is a *positive* for real estate and infrastructure.
+
+* **App:** choose it from the *Asset-class preset* dropdown; the beta fields
+  repopulate and remain editable.
+* **CLI:** `python cli.py data.xlsx --asset-class "Core real estate"`
+  (individual `--*-beta` flags still override the preset).
+* **Code:** `config.ASSET_CLASS_PRESETS` / `config.apply_preset(assumptions, name)`.
+
+These remain illustrative starting points — always tune them for the fund.
+
 ---
 
 ## Output

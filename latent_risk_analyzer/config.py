@@ -86,6 +86,93 @@ DEFAULT_ASSUMPTIONS = {
 
 
 # ---------------------------------------------------------------------------
+# Asset-class sensitivity presets
+# ---------------------------------------------------------------------------
+# The sensitivity (beta) keys that a preset overrides. Everything else in the
+# assumptions dict (risk-free rate, multiplier, ...) is left untouched.
+BETA_KEYS = [
+    "equity_beta",
+    "credit_beta",
+    "duration",
+    "inflation_beta",
+    "liquidity_beta",
+    "caprate_beta",
+    "nav_markdown_beta",
+]
+
+# Ready-made starting points calibrated to each asset class's economics.
+# These remain ILLUSTRATIVE -- edit them for the specific fund. Notable choices:
+#   * Real estate & infrastructure carry POSITIVE inflation betas (partial
+#     inflation hedge via rent/usage-linked revenue).
+#   * Private credit (direct lending) carries a slightly NEGATIVE duration
+#     because the book is largely floating-rate, so rising rates lift coupon
+#     income (a mild benefit), and a large credit-spread beta.
+#   * Venture / growth carries a high equity beta, long effective duration
+#     (long-dated cashflows hurt by higher rates) and a big lagged NAV markdown.
+ASSET_CLASS_PRESETS = {
+    "Balanced / generic (default)": {
+        "equity_beta": 0.40, "credit_beta": -0.015, "duration": 2.00,
+        "inflation_beta": -0.010, "liquidity_beta": -0.10, "caprate_beta": -0.06,
+        "nav_markdown_beta": 0.40,
+        "notes": "Generic partially market-exposed illiquid fund.",
+    },
+    "Core real estate": {
+        "equity_beta": 0.35, "credit_beta": -0.02, "duration": 3.00,
+        "inflation_beta": 0.05, "liquidity_beta": -0.15, "caprate_beta": -0.12,
+        "nav_markdown_beta": 0.40,
+        "notes": "Cap-rate driven; partial inflation hedge; financing-sensitive.",
+    },
+    "Private equity (buyout)": {
+        "equity_beta": 0.70, "credit_beta": -0.04, "duration": 1.50,
+        "inflation_beta": -0.02, "liquidity_beta": -0.12, "caprate_beta": 0.00,
+        "nav_markdown_beta": 0.60,
+        "notes": "High equity participation + leverage; large lagged NAV markdowns.",
+    },
+    "Private credit / direct lending": {
+        "equity_beta": 0.20, "credit_beta": -0.08, "duration": -0.50,
+        "inflation_beta": -0.01, "liquidity_beta": -0.10, "caprate_beta": 0.00,
+        "nav_markdown_beta": 0.30,
+        "notes": "Spread-driven; mostly floating-rate (rising rates help income).",
+    },
+    "Infrastructure": {
+        "equity_beta": 0.30, "credit_beta": -0.03, "duration": 4.00,
+        "inflation_beta": 0.08, "liquidity_beta": -0.10, "caprate_beta": -0.05,
+        "nav_markdown_beta": 0.35,
+        "notes": "Long-duration, inflation-linked revenues; rate-sensitive.",
+    },
+    "Venture / growth equity": {
+        "equity_beta": 0.80, "credit_beta": -0.02, "duration": 3.00,
+        "inflation_beta": -0.04, "liquidity_beta": -0.15, "caprate_beta": 0.00,
+        "nav_markdown_beta": 0.70,
+        "notes": "Long-duration growth; very illiquid; large delayed markdowns.",
+    },
+    "Hedge fund / diversified": {
+        "equity_beta": 0.40, "credit_beta": -0.03, "duration": 1.00,
+        "inflation_beta": -0.02, "liquidity_beta": -0.05, "caprate_beta": 0.00,
+        "nav_markdown_beta": 0.20,
+        "notes": "More liquid, diversified exposures; smaller markdown lag.",
+    },
+}
+
+
+def preset_betas(name: str) -> dict:
+    """Return just the beta key/values for a named asset-class preset."""
+    if name not in ASSET_CLASS_PRESETS:
+        raise KeyError(
+            f"Unknown asset-class preset '{name}'. "
+            f"Choices: {list(ASSET_CLASS_PRESETS)}"
+        )
+    preset = ASSET_CLASS_PRESETS[name]
+    return {k: preset[k] for k in BETA_KEYS}
+
+
+def apply_preset(assumptions: dict, name: str) -> dict:
+    """Overlay an asset-class preset's betas onto an assumptions dict (in place)."""
+    assumptions.update(preset_betas(name))
+    return assumptions
+
+
+# ---------------------------------------------------------------------------
 # Historical scenarios
 # ---------------------------------------------------------------------------
 # Each scenario is a dict of macro shocks. Missing keys default to 0.
