@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.DS_Store
+.ipynb_checkpoints/
+
+# Generated analysis artifacts
+*_analyzed.xlsx
+sample_data/sample_returns.xlsx
+charts_out/
+*.png
+!docs/*.png
