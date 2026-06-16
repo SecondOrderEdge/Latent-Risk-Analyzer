@@ -32,6 +32,8 @@ def run_analysis(
     scenarios: dict | None = None,
     force_percent: bool | None = None,
     declared_frequency: str | None = None,
+    return_column=None,
+    date_column=None,
 ) -> AnalysisResult:
     """
     Full pipeline: import -> de-smooth -> stats -> stress test.
@@ -56,6 +58,8 @@ def run_analysis(
         source,
         force_percent=force_percent,
         declared_frequency=declared_frequency,
+        return_column=return_column,
+        date_column=date_column,
     )
     ppy = imp.periods_per_year
     assumptions["frequency"] = imp.frequency

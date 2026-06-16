@@ -38,13 +38,18 @@ def build_parser() -> argparse.ArgumentParser:
         description="Geltner de-smoothing + private-market stress testing.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("input", help="Path to the input .xlsx file (Date in A, Return in B).")
+    p.add_argument("input", help="Path to the input .xlsx or .csv file (Date + Return).")
     p.add_argument("-o", "--output", help="Output .xlsx path (default: <input>_analyzed.xlsx).")
     p.add_argument("--png-dir", help="If set, also save charts as PNGs into this directory.")
 
     # Import overrides.
     p.add_argument("--frequency", choices=list(config.ANNUALIZATION_FACTORS),
                    help="Override frequency auto-detection.")
+    p.add_argument("--return-column", default=None,
+                   help="Name of the return column to use (e.g. 'NOF Return'). "
+                        "Default: auto-pick (prefers net-of-fees periodic return).")
+    p.add_argument("--date-column", default=None,
+                   help="Name of the date column. Default: auto-detect.")
     pct = p.add_mutually_exclusive_group()
     pct.add_argument("--percent", dest="force_percent", action="store_true",
                      help="Force returns to be treated as percentages.")
@@ -116,6 +121,8 @@ def main(argv=None) -> int:
             assumptions=assumptions,
             force_percent=args.force_percent,
             declared_frequency=args.frequency,
+            return_column=args.return_column,
+            date_column=args.date_column,
         )
     except Exception as exc:  # noqa: BLE001 -- surface a clean message to the user
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -33,20 +33,37 @@ matplotlib, openpyxl, XlsxWriter, streamlit.
 
 ---
 
-## Excel input format
+## Input format
+
+Accepts **`.xlsx` or `.csv`**. Two layouts work with no template:
+
+**1. Minimal two-column file**
 
 | Column | Contents                                   |
 |--------|--------------------------------------------|
-| **A**  | Date (any Excel-readable date)             |
+| **A**  | Date (any readable date)                   |
 | **B**  | Reported periodic return                   |
 
+**2. Rich vendor exports (e.g. Black Diamond)** — drop the raw export in
+directly. The loader finds the date column and the periodic-return column **by
+name**, ignoring cumulative/"Linked", benchmark and bookkeeping columns. When a
+file has several return streams (e.g. `GOF Return` gross-of-fees and
+`NOF Return` net-of-fees) it defaults to **net-of-fees** and lets you switch
+(dropdown in the app, `--return-column "GOF Return"` on the CLI).
+
+Common to both:
+
 * A header row is **optional** — it is auto-detected and skipped.
-* Returns may be in **percent** (`1.5` = 1.5%) or **decimal** (`0.015`) form —
-  the units are auto-detected (you can override).
+* Returns may be **percent** (`1.5%` / `1.5`) or **decimal** (`0.015`); the
+  units are auto-detected. A literal `%` sign is parsed and handled, as are
+  thousand separators, `$`, and `(parentheses)` negatives.
 * Blank/invalid rows are removed; rows are sorted ascending by date; duplicate
   dates are de-duplicated (last kept).
 * Frequency (monthly / quarterly / annual / weekly / daily / irregular) is
   auto-detected from the date spacing.
+* Trailing `0.00%` rows (common un-revalued NAV "roll-forward" rows in
+  appraisal data) are **flagged** so you can decide whether to exclude them —
+  they artificially dampen volatility.
 
 Generate a sample file to try it out:
 

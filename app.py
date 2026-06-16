@@ -47,7 +47,10 @@ st.caption(
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.header("1 · Input")
-    uploaded = st.file_uploader("Upload .xlsx (Date in A, Return in B)", type=["xlsx"])
+    uploaded = st.file_uploader(
+        "Upload .xlsx or .csv (Date + Return; vendor exports OK)",
+        type=["xlsx", "csv"],
+    )
     st.markdown("---")
     st.header("Import options")
     freq_choice = st.selectbox(
@@ -72,6 +75,7 @@ if uploaded is None:
 force_percent = {"auto-detect": None, "percent": True, "decimal": False}[pct_choice]
 declared_freq = None if freq_choice == "auto" else freq_choice
 
+# First pass: auto-detect columns so we can offer a return-column picker.
 try:
     imp = data_import.load_returns(
         uploaded, force_percent=force_percent, declared_frequency=declared_freq
@@ -79,6 +83,25 @@ try:
 except Exception as exc:  # noqa: BLE001
     st.error(f"Could not read the file: {exc}")
     st.stop()
+
+# If the file has several candidate return columns (e.g. a vendor export with
+# GOF/NOF), let the user choose which one to analyze and re-import.
+if len(imp.candidate_return_columns) > 1:
+    with st.sidebar:
+        st.markdown("---")
+        st.header("Return column")
+        chosen_col = st.selectbox(
+            "Which return stream?",
+            imp.candidate_return_columns,
+            index=imp.candidate_return_columns.index(imp.return_column),
+            help="Vendor exports often include gross-of-fees (GOF) and "
+                 "net-of-fees (NOF) periodic returns.",
+        )
+    if chosen_col != imp.return_column:
+        imp = data_import.load_returns(
+            uploaded, force_percent=force_percent,
+            declared_frequency=declared_freq, return_column=chosen_col,
+        )
 
 st.subheader("2 · Cleaned data preview")
 c1, c2, c3, c4 = st.columns(4)
