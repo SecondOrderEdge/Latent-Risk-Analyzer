@@ -359,9 +359,67 @@ with st.container(border=True):
                   f"{worst['Estimated drawdown']:.1%}",
                   help=f"Scenario: {worst['Scenario']}")
 
-tab_stats, tab_scen, tab_charts, tab_export = st.tabs(
-    ["📊 Summary stats", "🌪 Scenarios", "📈 Charts", "💾 Export"]
+tab_overview, tab_stats, tab_scen, tab_charts, tab_export = st.tabs(
+    ["🏠 Overview", "📊 Summary stats", "🌪 Scenarios", "📈 Charts", "💾 Export"]
 )
+
+with tab_overview:
+    # --- run facts ---
+    _d0 = pd.to_datetime(data["date"]).min().date()
+    _d1 = pd.to_datetime(data["date"]).max().date()
+    st.markdown(
+        f"**Period:** {_d0} → {_d1}  |  **Frequency:** {imp.frequency} "
+        f"({ppy}/yr)  |  **Observations:** {imp.n_observations}  |  "
+        f"**Asset class:** {preset_name}  |  "
+        f"**ρ used:** {des.rho_used:.3f} ({des.rho_source})"
+    )
+
+    # --- plain-English read ---
+    _rep_vol = look["Annualized volatility"][0]
+    _des_vol = look["Annualized volatility"][1]
+    _msg = (
+        f"Reported volatility of **{_rep_vol:.1%}** understates risk: after "
+        f"de-smoothing, estimated 'true' volatility is **{_des_vol:.1%}** "
+        f"({vi:+.1%} higher). "
+    )
+    if worst is not None:
+        _msg += (
+            f"The most severe modelled scenario, **{worst['Scenario']}**, implies "
+            f"an estimated drawdown of **{worst['Estimated drawdown']:.1%}**. "
+        )
+    _msg += ("These are sensitivity-based estimates driven by the editable "
+             "assumptions — tune them for this fund.")
+    st.info(_msg)
+
+    # --- worst scenarios + key chart side by side ---
+    oc1, oc2 = st.columns([1, 1])
+    with oc1:
+        st.markdown("**Worst stress scenarios** (estimated drawdown)")
+        _w = (
+            stress_df.sort_values("Estimated drawdown").head(5)[
+                ["Scenario", "Estimated drawdown", "Recovery (years)",
+                 "Impact / de-smoothed vol (sd)"]
+            ].rename(columns={
+                "Estimated drawdown": "Drawdown",
+                "Recovery (years)": "Recovery (yrs)",
+                "Impact / de-smoothed vol (sd)": "vs de-smoothed vol",
+            })
+        )
+        _w["Recovery (yrs)"] = _w["Recovery (yrs)"].replace([np.inf, -np.inf], np.nan)
+        st.dataframe(
+            _w.style.format({
+                "Drawdown": "{:.1%}", "Recovery (yrs)": "{:.1f}",
+                "vs de-smoothed vol": "{:+.1f}σ",
+            }, na_rep="n/a").background_gradient(
+                subset=["Drawdown"], cmap="RdYlGn", vmin=-0.6, vmax=0.6),
+            use_container_width=True, hide_index=True,
+        )
+    with oc2:
+        st.markdown("**Cumulative growth of $1**")
+        st.pyplot(charts.cumulative_growth_chart(data))
+
+    st.markdown("**Stress test — estimated impact by scenario**")
+    st.pyplot(charts.stress_bar_chart(stress_df, "Scenario impact"))
 
 with tab_stats:
     st.caption("Reported vs de-smoothed. De-smoothed shows the risk that "
