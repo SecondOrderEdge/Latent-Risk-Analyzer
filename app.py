@@ -28,6 +28,7 @@ from latent_risk_analyzer import (
     data_import,
     desmoothing,
     excel_export,
+    pdf_report,
     stats,
     stress_testing,
 )
@@ -451,18 +452,38 @@ with tab_export:
         "n_observations": imp.n_observations,
         "warnings": " | ".join(des.warnings) if des.warnings else "none",
     }
-    xlsx_bytes = excel_export.export_to_bytes(
-        data=data,
-        summary_table=summary_table,
-        stress_df=stress_df,
-        assumptions=assumptions,
-        desmooth_meta=desm_meta,
-        periods_per_year=ppy,
-        include_charts=True,
-    )
-    st.download_button(
-        "⬇️ Download Excel workbook",
-        data=xlsx_bytes,
-        file_name="latent_risk_analysis.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+    ex1, ex2 = st.columns(2)
+    with ex1:
+        st.markdown("**Excel workbook** — full detail across 6 tabs.")
+        xlsx_bytes = excel_export.export_to_bytes(
+            data=data,
+            summary_table=summary_table,
+            stress_df=stress_df,
+            assumptions=assumptions,
+            desmooth_meta=desm_meta,
+            periods_per_year=ppy,
+            include_charts=True,
+        )
+        st.download_button(
+            "⬇️ Download Excel workbook",
+            data=xlsx_bytes,
+            file_name="latent_risk_analysis.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    with ex2:
+        st.markdown("**PDF report** — one-page summary for an IC / DD memo.")
+        pdf_bytes = pdf_report.pdf_to_bytes(
+            data=data,
+            summary_table=summary_table,
+            stress_df=stress_df,
+            assumptions=assumptions,
+            desmooth_meta=desm_meta,
+            periods_per_year=ppy,
+            fund_name=getattr(uploaded, "name", None),
+        )
+        st.download_button(
+            "⬇️ Download PDF report",
+            data=pdf_bytes,
+            file_name="latent_risk_report.pdf",
+            mime="application/pdf",
+        )

@@ -8,7 +8,11 @@ venv/
 
 # Generated analysis artifacts
 *_analyzed.xlsx
+*_report.pdf
 sample_data/sample_returns.xlsx
 charts_out/
 *.png
 !docs/*.png
+
+# pytest / tooling
+.pytest_cache/

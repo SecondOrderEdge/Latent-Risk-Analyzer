@@ -1,0 +1,2 @@
+# Development / testing dependencies (in addition to requirements.txt)
+pytest>=7.0

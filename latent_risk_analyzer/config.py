@@ -60,6 +60,7 @@ DEFAULT_ASSUMPTIONS = {
     "frequency": "quarterly",      # monthly | quarterly | annual | ...
     "annualization_factor": 4,     # overridden once frequency is known
     "stress_multiplier": 1.0,      # global scaling applied to every scenario
+    "asset_class_preset": "Balanced / generic (default)",  # see presets below
 
     # --- de-smoothing ---
     "rho_override": None,          # if set, used instead of the estimated rho
