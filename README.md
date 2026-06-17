@@ -234,17 +234,47 @@ These remain illustrative starting points — always tune them for the fund.
 
 ## Output
 
-The exported workbook (`*_analyzed.xlsx`) contains:
+The exported workbook (`*_analyzed.xlsx`) opens on a one-page dashboard and
+contains:
 
-* **Returns** — date, reported, de-smoothed, cumulative growth and drawdown
-* **Summary Stats** — reported vs de-smoothed comparison
-* **Scenarios** — full stress-test results
-* **Assumptions** — every input used (so the run is reproducible) + ρ diagnostics
+* **Overview** — landing dashboard: run facts, headline metrics (reported vs
+  de-smoothed), the volatility-inflation number, worst stress scenarios, a
+  plain-English read and the two key charts
+* **Returns** — date, reported, de-smoothed, growth of $1 and drawdown
+* **Summary Stats** — reported vs de-smoothed comparison (per-metric formatting)
+* **Scenarios** — stress-test results, colour-scaled and %-formatted
+* **Assumptions** — every input used (friendly labels + units) + ρ diagnostics
 * **Charts** — embedded PNG charts
+
+All tabs use finance-friendly labels, proper number formats (%, ratios,
+counts), frozen headers and filters.
 
 Charts (also exportable as standalone PNGs via `--png-dir`): reported vs
 de-smoothed series, cumulative growth of $1, drawdown, rolling volatility,
 stress-test scenario bars, and a distribution comparison histogram.
+
+### One-page PDF report
+
+A print-ready one-page summary (headline metrics, volatility inflation, worst
+stress scenarios and the key charts) is available for an investment-committee /
+DD memo:
+
+* **App:** *Export* tab → *Download PDF report*.
+* **CLI:** add `--pdf` (writes `<input>_report.pdf`).
+* **Code:** `pdf_report.build_pdf(...)` / `pdf_report.pdf_to_bytes(...)`.
+
+---
+
+## Testing
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+The suite (`tests/`) covers the de-smoothing math, import/cleaning and
+percent/decimal & frequency detection, summary statistics, the stress engine,
+the asset-class presets, and the Excel/PDF exports.
 
 ---
 
@@ -259,9 +289,11 @@ latent_risk_analyzer/
     stress_testing.py  # sensitivity-based stress engine
     charts.py          # matplotlib charts
     excel_export.py    # multi-tab .xlsx export
+    pdf_report.py      # one-page PDF report
     pipeline.py        # orchestration used by both interfaces
 app.py                 # Streamlit interface
 cli.py                 # command-line interface
+tests/                 # pytest suite
 templates/
     make_template.py   # regenerates the blank input template
     input_template.xlsx# ready-to-fill input template (Date + Reported Return)

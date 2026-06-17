@@ -5,7 +5,7 @@ Run with:
     streamlit run app.py
 
 Features:
-  * upload an .xlsx file (Date in column A, Reported return in column B)
+  * upload an .xlsx or .csv file (simple Date+Return, or a vendor export)
   * preview the cleaned data
   * see the estimated autocorrelation / smoothing parameter (rho) and override it
   * edit all stress-test assumptions (betas, rf, multiplier, ...)
@@ -18,8 +18,7 @@ IMPORTANT: stress-test results are SENSITIVITY-BASED ESTIMATES, not forecasts.
 
 from __future__ import annotations
 
-import copy
-
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -29,6 +28,7 @@ from latent_risk_analyzer import (
     data_import,
     desmoothing,
     excel_export,
+    pdf_report,
     stats,
     stress_testing,
 )
@@ -40,6 +40,76 @@ st.caption(
     "Geltner de-smoothing + private-market stress testing. "
     "**Stress results are sensitivity-based estimates, not forecasts.**"
 )
+
+
+# ---------------------------------------------------------------------------
+# Display helpers (formatting for on-screen tables)
+# ---------------------------------------------------------------------------
+_PCT_METRICS = {
+    "Annualized return", "Annualized volatility", "Max drawdown",
+    "Best period", "Worst period", "Mean period return",
+    "Period volatility (std)",
+}
+_INT_METRICS = {"Observations"}
+
+
+def _summary_lookup(summary_table: pd.DataFrame) -> dict:
+    return {
+        r["Metric"]: (r["Reported"], r["De-smoothed"])
+        for _, r in summary_table.iterrows()
+    }
+
+
+def _fmt_summary(summary_table: pd.DataFrame) -> pd.DataFrame:
+    """Format the summary table into display strings (per-metric units)."""
+    def f(metric, v):
+        if pd.isna(v):
+            return "n/a"
+        if metric in _INT_METRICS:
+            return f"{int(round(v))}"
+        if metric in _PCT_METRICS:
+            return f"{v:.2%}"
+        return f"{v:.2f}"
+
+    return pd.DataFrame([
+        {"Metric": r["Metric"],
+         "Reported": f(r["Metric"], r["Reported"]),
+         "De-smoothed": f(r["Metric"], r["De-smoothed"])}
+        for _, r in summary_table.iterrows()
+    ])
+
+
+def _style_scenarios(stress_df: pd.DataFrame):
+    """Friendly, colour-scaled, %-formatted scenario table for the screen."""
+    cols = {
+        "Scenario": "Scenario",
+        "Stressed return (est.)": "Stressed return",
+        "Scenario impact": "Estimated impact",
+        "Estimated drawdown": "Estimated drawdown",
+        "Impact / reported vol (sd)": "vs reported vol",
+        "Impact / de-smoothed vol (sd)": "vs de-smoothed vol",
+        "Downside percentile": "Downside %ile",
+        "Recovery (years)": "Recovery (yrs)",
+        "Description": "Description",
+    }
+    disp = stress_df[list(cols)].rename(columns=cols).copy()
+    disp["Recovery (yrs)"] = disp["Recovery (yrs)"].replace([np.inf, -np.inf], np.nan)
+    return (
+        disp.style
+        .format({
+            "Stressed return": "{:.1%}",
+            "Estimated impact": "{:.1%}",
+            "Estimated drawdown": "{:.1%}",
+            "vs reported vol": "{:+.1f}σ",
+            "vs de-smoothed vol": "{:+.1f}σ",
+            "Downside %ile": "{:.1f}",
+            "Recovery (yrs)": "{:.1f}",
+        }, na_rep="n/a")
+        .background_gradient(
+            subset=["Estimated impact", "Estimated drawdown"],
+            cmap="RdYlGn", vmin=-0.6, vmax=0.6,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +182,14 @@ c4.metric("Units", "percent" if imp.detected_as_percent else "decimal")
 with st.expander("Import log"):
     for m in imp.messages:
         st.write("•", m)
-st.dataframe(imp.data, use_container_width=True, height=240)
+
+_prev = imp.data.copy()
+_prev["date"] = pd.to_datetime(_prev["date"]).dt.strftime("%Y-%m-%d")
+_prev = _prev.rename(columns={"date": "Date", "reported_return": "Reported Return"})
+st.dataframe(
+    _prev.style.format({"Reported Return": "{:.2%}"}),
+    use_container_width=True, height=300, hide_index=True,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -124,8 +201,10 @@ ppy = imp.periods_per_year
 
 with st.expander("General & de-smoothing", expanded=True):
     g1, g2, g3 = st.columns(3)
-    rf = g1.number_input("Risk-free rate (annual, decimal)", value=float(defaults["risk_free_rate"]),
-                         step=0.005, format="%.4f")
+    rf_pct = g1.number_input("Risk-free rate (annual, %)",
+                             value=float(defaults["risk_free_rate"]) * 100,
+                             step=0.25, format="%.2f")
+    rf = rf_pct / 100.0
     stress_multiplier = g2.number_input("Stress multiplier", value=float(defaults["stress_multiplier"]),
                                         step=0.1, format="%.2f")
     rho_max = g3.number_input("rho max (safeguard cap)", value=float(defaults["rho_max"]),
@@ -205,7 +284,7 @@ scen_editor_df = pd.DataFrame(scen_rows)
 
 edited = st.data_editor(
     scen_editor_df, use_container_width=True, num_rows="dynamic", height=420,
-    key="scenario_editor",
+    hide_index=True, key="scenario_editor",
 )
 
 
@@ -257,23 +336,103 @@ stress_df = stress_testing.run_stress_tests(
 # Results: tabs
 # ---------------------------------------------------------------------------
 st.subheader("5 · Results")
-tab_stats, tab_scen, tab_charts, tab_export = st.tabs(
-    ["📊 Summary stats", "🌪 Scenarios", "📈 Charts", "💾 Export"]
+
+# Headline metric band -- the "so what" at a glance.
+look = _summary_lookup(summary_table)
+vi = summary_table.attrs.get("volatility_inflation")
+worst = (
+    stress_df.sort_values("Estimated drawdown").iloc[0]
+    if stress_df is not None and not stress_df.empty else None
+)
+with st.container(border=True):
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Annualized return (de-smoothed)",
+              f"{look['Annualized return'][1]:.1%}")
+    m2.metric("'True' volatility (de-smoothed)",
+              f"{look['Annualized volatility'][1]:.1%}",
+              delta=f"{vi:+.1%} vs reported" if vi is not None else None,
+              delta_color="inverse",
+              help="De-smoothing reveals the volatility that appraisal "
+                   "smoothing hides. Higher than reported is expected.")
+    m3.metric("Sharpe (de-smoothed)", f"{look['Sharpe ratio'][1]:.2f}")
+    if worst is not None:
+        m4.metric("Worst scenario drawdown",
+                  f"{worst['Estimated drawdown']:.1%}",
+                  help=f"Scenario: {worst['Scenario']}")
+
+tab_overview, tab_stats, tab_scen, tab_charts, tab_export = st.tabs(
+    ["🏠 Overview", "📊 Summary stats", "🌪 Scenarios", "📈 Charts", "💾 Export"]
 )
 
-with tab_stats:
-    vi = summary_table.attrs.get("volatility_inflation")
-    if vi is not None:
-        st.metric("Volatility inflation from de-smoothing", f"{vi:+.1%}")
-    st.dataframe(
-        summary_table.style.format({"Reported": "{:.4f}", "De-smoothed": "{:.4f}"}),
-        use_container_width=True,
+with tab_overview:
+    # --- run facts ---
+    _d0 = pd.to_datetime(data["date"]).min().date()
+    _d1 = pd.to_datetime(data["date"]).max().date()
+    st.markdown(
+        f"**Period:** {_d0} → {_d1}  |  **Frequency:** {imp.frequency} "
+        f"({ppy}/yr)  |  **Observations:** {imp.n_observations}  |  "
+        f"**Asset class:** {preset_name}  |  "
+        f"**ρ used:** {des.rho_used:.3f} ({des.rho_source})"
     )
 
+    # --- plain-English read ---
+    _rep_vol = look["Annualized volatility"][0]
+    _des_vol = look["Annualized volatility"][1]
+    _msg = (
+        f"Reported volatility of **{_rep_vol:.1%}** understates risk: after "
+        f"de-smoothing, estimated 'true' volatility is **{_des_vol:.1%}** "
+        f"({vi:+.1%} higher). "
+    )
+    if worst is not None:
+        _msg += (
+            f"The most severe modelled scenario, **{worst['Scenario']}**, implies "
+            f"an estimated drawdown of **{worst['Estimated drawdown']:.1%}**. "
+        )
+    _msg += ("These are sensitivity-based estimates driven by the editable "
+             "assumptions — tune them for this fund.")
+    st.info(_msg)
+
+    # --- worst scenarios + key chart side by side ---
+    oc1, oc2 = st.columns([1, 1])
+    with oc1:
+        st.markdown("**Worst stress scenarios** (estimated drawdown)")
+        _w = (
+            stress_df.sort_values("Estimated drawdown").head(5)[
+                ["Scenario", "Estimated drawdown", "Recovery (years)",
+                 "Impact / de-smoothed vol (sd)"]
+            ].rename(columns={
+                "Estimated drawdown": "Drawdown",
+                "Recovery (years)": "Recovery (yrs)",
+                "Impact / de-smoothed vol (sd)": "vs de-smoothed vol",
+            })
+        )
+        _w["Recovery (yrs)"] = _w["Recovery (yrs)"].replace([np.inf, -np.inf], np.nan)
+        st.dataframe(
+            _w.style.format({
+                "Drawdown": "{:.1%}", "Recovery (yrs)": "{:.1f}",
+                "vs de-smoothed vol": "{:+.1f}σ",
+            }, na_rep="n/a").background_gradient(
+                subset=["Drawdown"], cmap="RdYlGn", vmin=-0.6, vmax=0.6),
+            use_container_width=True, hide_index=True,
+        )
+    with oc2:
+        st.markdown("**Cumulative growth of $1**")
+        st.pyplot(charts.cumulative_growth_chart(data))
+
+    st.markdown("**Stress test — estimated impact by scenario**")
+    st.pyplot(charts.stress_bar_chart(stress_df, "Scenario impact"))
+
+with tab_stats:
+    st.caption("Reported vs de-smoothed. De-smoothed shows the risk that "
+               "appraisal smoothing hides (higher vol/drawdown is expected).")
+    st.dataframe(_fmt_summary(summary_table), use_container_width=True,
+                 hide_index=True)
+
 with tab_scen:
-    st.caption("⚠️ Sensitivity-based estimates, not forecasts. Sorted worst-first.")
-    show = [c for c in stress_df.columns if not c.startswith("contrib_")]
-    st.dataframe(stress_df[show], use_container_width=True, height=460)
+    st.caption("⚠️ Sensitivity-based estimates, not forecasts. Sorted worst-first. "
+               "Red = larger estimated loss.")
+    st.dataframe(_style_scenarios(stress_df), use_container_width=True,
+                 height=560, hide_index=True)
 
 with tab_charts:
     all_charts = charts.build_all_charts(data, stress_df, ppy)
@@ -293,18 +452,38 @@ with tab_export:
         "n_observations": imp.n_observations,
         "warnings": " | ".join(des.warnings) if des.warnings else "none",
     }
-    xlsx_bytes = excel_export.export_to_bytes(
-        data=data,
-        summary_table=summary_table,
-        stress_df=stress_df,
-        assumptions=assumptions,
-        desmooth_meta=desm_meta,
-        periods_per_year=ppy,
-        include_charts=True,
-    )
-    st.download_button(
-        "⬇️ Download Excel workbook",
-        data=xlsx_bytes,
-        file_name="latent_risk_analysis.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+    ex1, ex2 = st.columns(2)
+    with ex1:
+        st.markdown("**Excel workbook** — full detail across 6 tabs.")
+        xlsx_bytes = excel_export.export_to_bytes(
+            data=data,
+            summary_table=summary_table,
+            stress_df=stress_df,
+            assumptions=assumptions,
+            desmooth_meta=desm_meta,
+            periods_per_year=ppy,
+            include_charts=True,
+        )
+        st.download_button(
+            "⬇️ Download Excel workbook",
+            data=xlsx_bytes,
+            file_name="latent_risk_analysis.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    with ex2:
+        st.markdown("**PDF report** — one-page summary for an IC / DD memo.")
+        pdf_bytes = pdf_report.pdf_to_bytes(
+            data=data,
+            summary_table=summary_table,
+            stress_df=stress_df,
+            assumptions=assumptions,
+            desmooth_meta=desm_meta,
+            periods_per_year=ppy,
+            fund_name=getattr(uploaded, "name", None),
+        )
+        st.download_button(
+            "⬇️ Download PDF report",
+            data=pdf_bytes,
+            file_name="latent_risk_report.pdf",
+            mime="application/pdf",
+        )

@@ -30,7 +30,7 @@ import sys
 
 import pandas as pd
 
-from latent_risk_analyzer import charts, config, excel_export, pipeline
+from latent_risk_analyzer import charts, config, excel_export, pdf_report, pipeline
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,6 +41,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("input", help="Path to the input .xlsx or .csv file (Date + Return).")
     p.add_argument("-o", "--output", help="Output .xlsx path (default: <input>_analyzed.xlsx).")
     p.add_argument("--png-dir", help="If set, also save charts as PNGs into this directory.")
+    p.add_argument("--pdf", action="store_true",
+                   help="Also write a one-page PDF report (<input>_report.pdf).")
 
     # Import overrides.
     p.add_argument("--frequency", choices=list(config.ANNUALIZATION_FACTORS),
@@ -176,6 +178,20 @@ def main(argv=None) -> int:
         all_charts = charts.build_all_charts(res.data, res.stress_df, res.periods_per_year)
         paths = charts.save_all_charts(all_charts, args.png_dir)
         print(f"Wrote {len(paths)} PNG chart(s) -> {args.png_dir}")
+
+    if args.pdf:
+        pdf_path = os.path.splitext(args.input)[0] + "_report.pdf"
+        pdf_report.build_pdf(
+            pdf_path,
+            data=res.data,
+            summary_table=res.summary_table,
+            stress_df=res.stress_df,
+            assumptions=res.assumptions,
+            desmooth_meta=pipeline.desmooth_meta(res),
+            periods_per_year=res.periods_per_year,
+            fund_name=os.path.splitext(os.path.basename(args.input))[0],
+        )
+        print(f"Wrote PDF report -> {pdf_path}")
 
     return 0
 
