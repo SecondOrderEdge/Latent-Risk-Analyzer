@@ -20,6 +20,7 @@ NOTE: the stress figures are sensitivity-based estimates, not forecasts.
 from __future__ import annotations
 
 import io
+import os
 
 import matplotlib
 
@@ -133,23 +134,29 @@ def build_pdf(
     # --- header text ---
     title = "Latent Risk Analyzer — Risk Summary"
     if fund_name:
-        title += f"  ·  {fund_name}"
+        # Strip a file extension (e.g. "AL CAP 91.csv" -> "AL CAP 91").
+        clean_name = os.path.splitext(str(fund_name))[0].strip()
+        if clean_name:
+            title += f"  ·  {clean_name}"
     fig.text(0.07, 0.965, title, fontsize=15, fontweight="bold", color=_DARK)
     fig.text(0.07, 0.945,
              "Geltner de-smoothing + private-market stress testing  ·  "
              "stress results are SENSITIVITY-BASED ESTIMATES, not forecasts",
              fontsize=8, style="italic", color="#666666")
 
-    facts = (
+    facts1 = (
         f"Period: {d0} to {d1}    |    "
         f"Frequency: {assumptions.get('frequency','?')} "
         f"({assumptions.get('annualization_factor', periods_per_year)}/yr)    |    "
-        f"Observations: {desmooth_meta.get('n_observations', len(data))}    |    "
+        f"Observations: {desmooth_meta.get('n_observations', len(data))}"
+    )
+    facts2 = (
         f"Asset class: {assumptions.get('asset_class_preset','—')}    |    "
         f"rho: {desmooth_meta.get('rho_used','?')} "
         f"({desmooth_meta.get('rho_source','?')})"
     )
-    fig.text(0.07, 0.923, facts, fontsize=6.8, color="#333333")
+    fig.text(0.07, 0.927, facts1, fontsize=7.5, color="#333333")
+    fig.text(0.07, 0.911, facts2, fontsize=7.5, color="#333333")
 
     # --- plain-English read ---
     rep_vol, des_vol = look.get("Annualized volatility", (np.nan, np.nan))
