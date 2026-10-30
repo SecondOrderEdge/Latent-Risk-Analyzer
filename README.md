@@ -100,6 +100,9 @@ Then in the browser you can:
 ### Option 2 — Command line
 
 ```bash
+# Generate the synthetic sample file first (it is not committed)
+python sample_data/generate_sample.py
+
 # Basic run — auto-detect everything, write <input>_analyzed.xlsx next to input
 python cli.py sample_data/sample_returns.xlsx
 
@@ -306,7 +309,7 @@ requirements.txt
 
 ## Disclaimer
 
-This tool is for analytical and educational purposes. The de-smoothed series and
+This tool is for informational, educational and research purposes only. The de-smoothed series and
 stress-test results are **model-based estimates** that depend heavily on the
 chosen parameters (ρ and the sensitivity betas). They are **not** investment
 advice or precise forecasts. Always sanity-check the assumptions against your
